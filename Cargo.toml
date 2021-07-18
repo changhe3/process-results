@@ -9,5 +9,4 @@ edition = "2018"
 arrayvec = { version = "0.7.1", optional = true }
 
 [dev-dependencies]
-fallible-iterator = "0.2.0"
 eyre = "0.6.5"
