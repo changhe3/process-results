@@ -1,3 +1,4 @@
+use crate::errors::Ignore;
 use crate::raw_iter::RawIter;
 use errors::ErrorCollector;
 
@@ -9,11 +10,23 @@ pub trait IterResult: Iterator<Item = Result<Self::Ok, Self::Error>> + Sized {
     type Error;
 
     #[inline]
-    fn fallible(self) -> Fallible<Self, Option<Self::Error>> {
-        Fallible {
-            iter: self,
-            errors: None,
-        }
+    fn failfast(self) -> Fallible<Self, Option<Self::Error>> {
+        self.fallible()
+    }
+
+    #[inline]
+    fn ignore(self) -> Fallible<Self, Ignore<Self::Error>> {
+        self.fallible()
+    }
+
+    #[inline]
+    fn accumulate(self) -> Fallible<Self, Vec<Self::Error>> {
+        self.fallible()
+    }
+
+    #[inline]
+    fn fallible<C: ErrorCollector<Error = Self::Error>>(self) -> Fallible<Self, C> {
+        self.with_collector(C::empty())
     }
 
     #[inline]
@@ -60,6 +73,23 @@ where
         let b = f(raw_iter);
         errors.with_value(b)
     }
+
+    #[inline]
+    pub fn process_no_discard<F, B>(self, f: F) -> Result<B, (B, C::Collection)>
+    where
+        F: FnOnce(RawIter<I, C>) -> B,
+    {
+        let Self { iter, mut errors } = self;
+        let raw_iter = RawIter {
+            iter,
+            errors: &mut errors,
+        };
+        let b = f(raw_iter);
+        match errors.with_value(()) {
+            Ok(_) => Ok(b),
+            Err(err) => Err((b, err)),
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -74,8 +104,7 @@ macro_rules! fallible {
         $base
     };
     ($base:expr, $($b_type:ty :)? | $id:ident $(: $ty:ty)? | $expr:expr $(, $($tail:tt)+)? ) => {
-        crate::IterResult::fallible($base)
-            .process$(::<_, $b_type>)?(|$id $(: $ty:ty)?| fallible!($expr $(, $($tail)+)?))
+        crate::Fallible::process$(::<_, $b_type>)?($base, |$id $(: $ty:ty)?| fallible!($expr $(, $($tail)+)?))
     };
 }
 
@@ -90,14 +119,14 @@ mod tests {
     #[test]
     fn test_fail_fast() {
         let v = vec![Ok(1i64), Ok(4), Ok(-3), Err("Error"), Ok(10)];
-        let res: Result<i64, _> = v.into_iter().fallible().process(|it| it.sum());
+        let res: Result<i64, _> = v.into_iter().failfast().process(|it| it.sum());
         assert_eq!(res, Err("Error"));
     }
 
     #[test]
     fn test_success() {
         let v: Vec<Result<_, &str>> = vec![Ok(1i64), Ok(4), Ok(-3), Ok(10)];
-        let res: i64 = v.into_iter().fallible().process(|it| it.sum()).unwrap();
+        let res: i64 = v.into_iter().failfast().process(|it| it.sum()).unwrap();
         assert_eq!(res, 12);
     }
 
@@ -132,17 +161,17 @@ mod tests {
     #[test]
     fn test_recursive() -> eyre::Result<()> {
         let res_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("res");
-        let sum = res_dir.read_dir()?.fallible().process(|it| {
+        let sum = res_dir.read_dir()?.failfast().process(|it| {
             it.filter(|entry| entry.file_type().map_or(false, |t| t.is_file()))
                 .map(|entry| File::open(entry.path()))
-                .fallible()
+                .failfast()
                 .process(|it| {
                     it.map(BufReader::new)
                         .flat_map(|f| f.lines())
-                        .fallible()
+                        .failfast()
                         .process(|it| {
                             it.map(|ln| ln.parse::<i32>())
-                                .fallible()
+                                .ignore()
                                 .process::<_, i32>(|it| it.sum())
                         })
                 })
@@ -155,12 +184,12 @@ mod tests {
     fn test_macro() -> eyre::Result<()> {
         let res_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("res");
         let sum = fallible!(
-            res_dir.read_dir()?,
+            res_dir.read_dir()?.failfast(),
             |it| it
                 .filter(|entry| entry.file_type().map_or(false, |t| t.is_file()))
-                .map(|entry| File::open(entry.path())),
-            |it| it.map(BufReader::new).flat_map(|f| f.lines()),
-            |it| it.map(|ln| ln.parse::<i32>()),
+                .map(|entry| File::open(entry.path())).failfast(),
+            |it| it.map(BufReader::new).flat_map(|f| f.lines()).failfast(),
+            |it| it.map(|ln| ln.parse::<i32>()).ignore(),
             i32: |it| it.sum()
         )????;
         assert_eq!(sum, 11966);
