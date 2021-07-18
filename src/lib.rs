@@ -106,6 +106,15 @@ macro_rules! fallible {
     ($base:expr, $($b_type:ty :)? | $id:ident $(: $ty:ty)? | $expr:expr $(, $($tail:tt)+)? ) => {
         crate::Fallible::process$(::<_, $b_type>)?($base, |$id $(: $ty:ty)?| fallible!($expr $(, $($tail)+)?))
     };
+    ($base:expr, $($b_type:ty :)? move | $id:ident $(: $ty:ty)? | $expr:expr $(, $($tail:tt)+)? ) => {
+        crate::Fallible::process$(::<_, $b_type>)?($base, move |$id $(: $ty:ty)?| fallible!($expr $(, $($tail)+)?))
+    };
+    ($base:expr, no_discard $($b_type:ty :)? | $id:ident $(: $ty:ty)? | $expr:expr $(, $($tail:tt)+)? ) => {
+        crate::Fallible::process_no_discard$(::<_, $b_type>)?($base, |$id $(: $ty:ty)?| fallible!($expr $(, $($tail)+)?))
+    };
+    ($base:expr, no_discard $($b_type:ty :)? move | $id:ident $(: $ty:ty)? | $expr:expr $(, $($tail:tt)+)? ) => {
+        crate::Fallible::process_no_discard$(::<_, $b_type>)?($base, move |$id $(: $ty:ty)?| fallible!($expr $(, $($tail)+)?))
+    };
 }
 
 #[cfg(test)]
@@ -189,10 +198,25 @@ mod tests {
                 .filter(|entry| entry.file_type().map_or(false, |t| t.is_file()))
                 .map(|entry| File::open(entry.path())).failfast(),
             |it| it.map(BufReader::new).flat_map(|f| f.lines()).failfast(),
-            |it| it.map(|ln| ln.parse::<i32>()).ignore(),
-            i32: |it| it.sum()
-        )????;
-        assert_eq!(sum, 11966);
+            |it| it.map(|ln| ln.parse::<i32>()).accumulate(),
+            no_discard i32: |it| it.sum()
+        )???;
+        assert_eq!(
+            sum,
+            Err((
+                11966,
+                vec![
+                    "sadfs",
+                    "1000000000000000000000000000000000000000000000000000000000",
+                    "hello world",
+                    "1.35"
+                ]
+                .into_iter()
+                .map(str::parse::<i32>)
+                .map(Result::unwrap_err)
+                .collect()
+            ))
+        );
         Ok(())
     }
 }
