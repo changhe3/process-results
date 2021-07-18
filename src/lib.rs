@@ -75,7 +75,7 @@ where
     }
 
     #[inline]
-    pub fn process_no_discard<F, B>(self, f: F) -> Result<B, (B, C::Collection)>
+    pub fn process_no_discard<F, B>(self, f: F) -> (B, Option<C::Collection>)
     where
         F: FnOnce(RawIter<I, C>) -> B,
     {
@@ -85,10 +85,7 @@ where
             errors: &mut errors,
         };
         let b = f(raw_iter);
-        match errors.with_value(()) {
-            Ok(_) => Ok(b),
-            Err(err) => Err((b, err)),
-        }
+        (b, errors.with_value(()).err())
     }
 }
 
@@ -192,7 +189,7 @@ mod tests {
     #[test]
     fn test_macro() -> eyre::Result<()> {
         let res_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("res");
-        let sum = fallible!(
+        let (sum, err) = fallible!(
             res_dir.read_dir()?.failfast(),
             |it| it
                 .filter(|entry| entry.file_type().map_or(false, |t| t.is_file()))
@@ -201,10 +198,10 @@ mod tests {
             |it| it.map(|ln| ln.parse::<i32>()).accumulate(),
             no_discard i32: |it| it.sum()
         )???;
+        assert_eq!(sum, 11966);
         assert_eq!(
-            sum,
-            Err((
-                11966,
+            err,
+            Some(
                 vec![
                     "sadfs",
                     "1000000000000000000000000000000000000000000000000000000000",
@@ -215,7 +212,7 @@ mod tests {
                 .map(str::parse::<i32>)
                 .map(Result::unwrap_err)
                 .collect()
-            ))
+            )
         );
         Ok(())
     }
