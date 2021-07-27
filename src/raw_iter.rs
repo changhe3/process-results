@@ -1,6 +1,9 @@
 use crate::errors::{ControlFlow, ErrorCollector};
 use crate::IterResult;
 
+/// An iterator adaptor wrapping an iterator with [`Result<T, E>`] elements and implements
+/// `Iterator<Item=T>`. Used only in [`Fallible::process`][`crate::Fallible::process`] and
+/// [`Fallible::process_no_discard`][crate::Fallible::process_no_discard].
 #[must_use = "iterator adaptors are lazy and do nothing unless consumed"]
 #[derive(Debug)]
 pub struct RawIter<'c, I, C> {
@@ -11,7 +14,7 @@ pub struct RawIter<'c, I, C> {
 impl<I, C> Iterator for RawIter<'_, I, C>
 where
     I: IterResult,
-    C: ErrorCollector<Error = I::Error>,
+    C: ErrorCollector<I::Error>,
 {
     type Item = I::Ok;
 

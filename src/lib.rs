@@ -4,7 +4,7 @@
 //! hence the name, but with a more much ergonomic interface, some extra
 //! helper methods and a macro to reduce boiler-plate.   
 //!
-//! At a high level this crate is composed of 3 items: an extension trait `IterResult` that is
+//! At a high level this crate is composed of 3 items: an extension trait [`IterResult`] that is
 //! implemented for all [iterators][Iterator] of [`Result`] type, [`Fallible`] struct that
 //! wraps the iterator, and [`ErrorCollector`][ErrorCollector] that stores the errors.
 //!
@@ -119,7 +119,7 @@ pub trait IterResult: Iterator<Item = Result<Self::Ok, Self::Error>> + Sized {
 
     /// Produces a version of [`Fallible`] that keeps iterating and ignores all errors.
     #[inline]
-    fn ignore(self) -> Fallible<Self, Ignore<Self::Error>> {
+    fn ignore(self) -> Fallible<Self, Ignore> {
         self.fallible()
     }
 
@@ -131,16 +131,13 @@ pub trait IterResult: Iterator<Item = Result<Self::Ok, Self::Error>> + Sized {
 
     /// Produces a version of [`Fallible`] with a custom type of [`ErrorCollector`]
     #[inline]
-    fn fallible<C: ErrorCollector<Error = Self::Error>>(self) -> Fallible<Self, C> {
+    fn fallible<C: ErrorCollector<Self::Error>>(self) -> Fallible<Self, C> {
         self.with_collector(C::empty())
     }
 
     /// Produces a version of [`Fallible`] with an existing value of [`ErrorCollector`]
     #[inline]
-    fn with_collector<C: ErrorCollector<Error = Self::Error>>(
-        self,
-        collector: C,
-    ) -> Fallible<Self, C> {
+    fn with_collector<C: ErrorCollector<Self::Error>>(self, collector: C) -> Fallible<Self, C> {
         Fallible {
             iter: self,
             errors: collector,
@@ -166,7 +163,7 @@ pub struct Fallible<I, C> {
 impl<I, C> Fallible<I, C>
 where
     I: IterResult,
-    C: ErrorCollector<Error = I::Error>,
+    C: ErrorCollector<I::Error>,
 {
     /// “Lift” a function of the values of an iterator so that it can process an iterator of [`Result`]
     /// values instead.
@@ -216,8 +213,8 @@ where
     }
 }
 
-/// A macro used to reduce boilerplate when nesting multiple calls to `.process()` or `process_raw()`
-/// inside each other.
+/// A macro used to reduce boilerplate when nesting multiple calls to [`process`][Fallible::process]
+/// or [`process_no_discard`][Fallible::process_no_discard] inside each other.
 ///
 /// [`Fallible`] and [`IterResult`] must be imported to use the macro.
 #[macro_export]

@@ -11,9 +11,7 @@ pub enum ControlFlow {
 
 /// Determines the manner in which the encountered error(s) are processed, stored and returned, as well as
 /// whether the iteration should continue or not.
-pub trait ErrorCollector {
-    /// The error type to be processed
-    type Error; // todo: refactor to generic parameter
+pub trait ErrorCollector<E> {
     /// The type to be returned after the iteration has been stopped
     type Collection;
 
@@ -22,7 +20,7 @@ pub trait ErrorCollector {
 
     /// Processes an error. Returns an [`ControlFlow`] type indicating whether the iteration shall stop
     /// or not.
-    fn push_err(&mut self, err: Self::Error) -> ControlFlow;
+    fn push_err(&mut self, err: E) -> ControlFlow;
 
     /// Returns `Ok(val)` if the iteration run to completion, or an error collection of type
     /// [`Self::Collection`][ErrorCollector::Collection] if error(s) were encountered.
@@ -32,26 +30,18 @@ pub trait ErrorCollector {
 /// A unit type that implements [`ErrorCollector`]. Ignores all errors and runs the iterator to
 /// completion
 #[derive(Debug, Copy, Clone)]
-pub struct Ignore<E>(PhantomData<E>);
+pub struct Ignore;
 
-impl<E> Default for Ignore<E> {
-    #[inline]
-    fn default() -> Self {
-        Self(PhantomData)
-    }
-}
-
-impl<E> ErrorCollector for Ignore<E> {
-    type Error = E;
+impl<E> ErrorCollector<E> for Ignore {
     type Collection = Infallible;
 
     #[inline]
     fn empty() -> Self {
-        Self::default()
+        Self
     }
 
     #[inline]
-    fn push_err(&mut self, _err: Self::Error) -> ControlFlow {
+    fn push_err(&mut self, _err: E) -> ControlFlow {
         Continue
     }
 
@@ -61,30 +51,8 @@ impl<E> ErrorCollector for Ignore<E> {
     }
 }
 
-impl<E> ErrorCollector for Result<(), E> {
-    type Error = E;
-    type Collection = E;
-
-    #[inline]
-    fn empty() -> Self {
-        Result::Ok(())
-    }
-
-    #[inline]
-    fn push_err(&mut self, err: Self::Error) -> ControlFlow {
-        *self = Err(err);
-        Break
-    }
-
-    #[inline]
-    fn with_value<T>(self, val: T) -> Result<T, Self::Collection> {
-        self.map(|_| val)
-    }
-}
-
-impl<E> ErrorCollector for Option<E> {
-    type Error = E;
-    type Collection = E;
+impl<E, F: From<E>> ErrorCollector<E> for Option<F> {
+    type Collection = F;
 
     #[inline]
     fn empty() -> Self {
@@ -92,8 +60,8 @@ impl<E> ErrorCollector for Option<E> {
     }
 
     #[inline]
-    fn push_err(&mut self, err: Self::Error) -> ControlFlow {
-        *self = Some(err);
+    fn push_err(&mut self, err: E) -> ControlFlow {
+        *self = Some(err.into());
         Break
     }
 
@@ -107,8 +75,7 @@ impl<E> ErrorCollector for Option<E> {
     }
 }
 
-impl<E> ErrorCollector for Vec<E> {
-    type Error = E;
+impl<E, F: From<E>> ErrorCollector<E> for Vec<F> {
     type Collection = Self;
 
     #[inline]
@@ -117,8 +84,8 @@ impl<E> ErrorCollector for Vec<E> {
     }
 
     #[inline]
-    fn push_err(&mut self, err: Self::Error) -> ControlFlow {
-        self.push(err);
+    fn push_err(&mut self, err: E) -> ControlFlow {
+        self.push(err.into());
         Continue
     }
 
@@ -135,11 +102,10 @@ impl<E> ErrorCollector for Vec<E> {
 #[cfg(feature = "arrayvec")]
 use arrayvec::ArrayVec;
 use std::convert::Infallible;
-use std::marker::PhantomData;
 
+/// Store upto N errors in an `ArrayVec<E, N>`. Stop the iteration if more are encountered.
 #[cfg(feature = "arrayvec")]
-impl<E, const CAP: usize> ErrorCollector for ArrayVec<E, CAP> {
-    type Error = E;
+impl<E, F: From<E>, const CAP: usize> ErrorCollector<E> for ArrayVec<F, CAP> {
     type Collection = Self;
 
     #[inline]
@@ -148,8 +114,8 @@ impl<E, const CAP: usize> ErrorCollector for ArrayVec<E, CAP> {
     }
 
     #[inline]
-    fn push_err(&mut self, err: Self::Error) -> ControlFlow {
-        match self.try_push(err) {
+    fn push_err(&mut self, err: E) -> ControlFlow {
+        match self.try_push(err.into()) {
             Ok(_) => Continue,
             Err(_) => Break,
         }
