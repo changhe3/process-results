@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2018"
 authors = ["Chang He"]
 license = "MIT OR Apache-2.0"
+description = """process-results is a crate that provides the same functionality provided by
+Itertools::process_results. It helps you process an iterator of results, with a more ergonomic
+and composable interface."""
+readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
