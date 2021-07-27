@@ -1,5 +1,5 @@
-use crate::errors::ErrorCollector;
-use crate::{ControlFlow, IterResult};
+use crate::errors::{ControlFlow, ErrorCollector};
+use crate::IterResult;
 
 #[must_use = "iterator adaptors are lazy and do nothing unless consumed"]
 #[derive(Debug)]

@@ -1,17 +1,37 @@
-use crate::ControlFlow;
 use ControlFlow::*;
 
+/// Denotes whether the iteration should continue or not.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub enum ControlFlow {
+    /// To stop the iteration and return the error
+    Break,
+    /// To continue the iteration
+    Continue,
+}
+
+/// Determines the manner in which the encountered error(s) are processed, stored and returned, as well as
+/// whether the iteration should continue or not.
 pub trait ErrorCollector {
-    type Error;
+    /// The error type to be processed
+    type Error; // todo: refactor to generic parameter
+    /// The type to be returned after the iteration has been stopped
     type Collection;
 
+    /// Creates an empty `ErrorCollector`.
     fn empty() -> Self;
 
+    /// Processes an error. Returns an [`ControlFlow`] type indicating whether the iteration shall stop
+    /// or not.
     fn push_err(&mut self, err: Self::Error) -> ControlFlow;
 
+    /// Returns `Ok(val)` if the iteration run to completion, or an error collection of type
+    /// [`Self::Collection`][ErrorCollector::Collection] if error(s) were encountered.
     fn with_value<T>(self, val: T) -> Result<T, Self::Collection>;
 }
 
+/// A unit type that implements [`ErrorCollector`]. Ignores all errors and runs the iterator to
+/// completion
+#[derive(Debug, Copy, Clone)]
 pub struct Ignore<E>(PhantomData<E>);
 
 impl<E> Default for Ignore<E> {
