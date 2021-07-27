@@ -8,6 +8,9 @@ description = """process-results is a crate that provides the same functionality
 Itertools::process_results. It helps you process an iterator of results, with a more ergonomic
 and composable interface."""
 readme = "README.md"
+repository = "https://github.com/changhe3/process-results"
+keywords = ["iterator", "data-structure", "result"]
+categories = ["rust-patterns"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
