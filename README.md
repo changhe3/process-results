@@ -1,5 +1,5 @@
 # process-results
-`process-results` is a crate that ides the same functionality provided by 
+`process-results` is a crate that provides the same functionality provided by 
 [`Itertools::process_results`](https://docs.rs/itertools/0.10.1/itertools/fn.process_results.html).
 It helps process an iterator of results, but with a more ergonomic and composable interface. 
 
