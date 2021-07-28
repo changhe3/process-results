@@ -1,5 +1,5 @@
 # process-results
-===================
+
 [![Crates.io: arrayvec](https://img.shields.io/crates/v/process-results.svg)](https://crates.io/crates/process-results)
 [![Documentation](https://docs.rs/process-results/badge.svg)](https://docs.rs/process-results)
 
