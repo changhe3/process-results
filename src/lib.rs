@@ -55,8 +55,67 @@
 //!
 //! ### Nested Errors
 //! Here is an example that read lines from files in a folder, parse each line as `i32`
-//! while saving the lines that cannot be parsed successfully. The macro [`fallible!`] is used to
-//! reduce boilerplate.
+//! while saving the lines that cannot be parsed successfully.
+//!
+//! ```
+//! use process_results::*;
+//! use process_results::fallible;
+//! use std::path::Path;
+//! use std::fs::File;
+//! use std::io::BufReader;
+//! use std::io::BufRead;
+//!
+//! let res_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("res");
+//! let res_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("res");
+//! let (sum, err) = res_dir
+//!     .read_dir()
+//!     .unwrap()
+//!     .failfast()
+//!     .process(|it| {
+//!         it.filter(|entry| entry.file_type().map_or(false, |t| t.is_file()))
+//!             .map(|entry| {
+//!                 File::open(entry.path())
+//!                     .map(BufReader::new)
+//!                     .map(|f| (entry.file_name(), f))
+//!             })
+//!             .failfast()
+//!             .process(|it| {
+//!                 it.flat_map(|(name, f)| {
+//!                     f.lines()
+//!                         .enumerate()
+//!                         .map(move |(ln_no, ln)| ln.map(|ln| (name.clone(), ln_no, ln)))
+//!                 })
+//!                 .failfast()
+//!                 .process(|it| {
+//!                     it.map(|(name, ln_no, ln)| {
+//!                         ln.parse::<i32>().map_err(|_e| {
+//!                             format!("{}-{}: {}", name.to_string_lossy(), ln_no + 1, ln)
+//!                         })
+//!                     })
+//!                     .accumulate()
+//!                     .process_no_discard::<_, i32>(|it| it.sum())
+//!                 })
+//!             })
+//!     })
+//!     .unwrap()
+//!     .unwrap()
+//!     .unwrap();
+//! assert_eq!(sum, 11966);
+//! assert_eq!(
+//!     err.unwrap(),
+//!     vec![
+//!         "test1.txt-7: sadfs",
+//!         "test2.txt-3: 1000000000000000000000000000000000000000000000000000000000",
+//!         "test2.txt-6: hello world",
+//!         "test2.txt-8: 1.35"
+//!     ]
+//! );
+//! ```
+//!
+//!
+//! ### Nested Errors with Macro
+//! The same code as the last one, but utilizing macro [`fallible!`].
+//!
 //! ```
 //! use process_results::*;
 //! use process_results::fallible;
