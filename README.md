@@ -1,4 +1,8 @@
 # process-results
+===================
+[![Crates.io: arrayvec](https://img.shields.io/crates/v/process-results.svg)](https://crates.io/crates/process-results)
+[![Documentation](https://docs.rs/process-results/badge.svg)](https://docs.rs/process-results)
+
 `process-results` is a crate that provides the same functionality provided by 
 [`Itertools::process_results`](https://docs.rs/itertools/0.10.1/itertools/fn.process_results.html).
 It helps you process an iterator of results, with a more ergonomic and composable interface. 
